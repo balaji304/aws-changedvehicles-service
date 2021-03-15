@@ -1,0 +1,6 @@
+Resources:
+  ChangedVehiclesTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: ChangedVehiclesTopic
+      TopicName: changedvehiclesTopic

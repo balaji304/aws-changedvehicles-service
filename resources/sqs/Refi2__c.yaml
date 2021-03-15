@@ -1,0 +1,47 @@
+Resources:
+  Refi2TopicSubscriberQueue:
+    DeletionPolicy: Retain
+    Type: "AWS::SQS::Queue"
+    Properties:
+      MessageRetentionPeriod: 604800
+      QueueName: "Refi2-TopicSubscriber-${opt:stage, self:custom.defaultStage}-${self:service.name}-Queue"
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt Refi2TopicSubscriberDeadLetterQueue.Arn
+        maxReceiveCount: 25
+      VisibilityTimeout: 120
+
+  Refi2TopicSubscriberQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: "allow-sns-messages"
+            Effect: Allow
+            Principal: "*"
+            Resource: !GetAtt
+              - Refi2TopicSubscriberQueue
+              - Arn
+            Action: "SQS:SendMessage"
+            Condition:
+              ArnEquals:
+                "aws:SourceArn": 'arn:aws:sns:eu-central-1:${self:custom.ProductBackendAccounts.${opt:stage, self:custom.defaultStage}.AccountId}:ext-sf-refi2-${opt:stage, self:custom.defaultStage}'
+      Queues:
+        - Ref: Refi2TopicSubscriberQueue
+
+  Refi2TopicSubscriberDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+      QueueName: "Refi2-TopicSubscriber-${opt:stage, self:custom.defaultStage}-${self:service.name}-Queue-dl-queue"
+
+
+  Refi2TopicSubscriberQueueSubscription:
+    Type: 'AWS::SNS::Subscription'
+    Properties:
+      TopicArn: 'arn:aws:sns:eu-central-1:${self:custom.ProductBackendAccounts.${opt:stage, self:custom.defaultStage}.AccountId}:ext-sf-refi2-${opt:stage, self:custom.defaultStage}'
+      Endpoint: !GetAtt
+        - Refi2TopicSubscriberQueue
+        - Arn
+      Protocol: sqs
+      RawMessageDelivery: "false"

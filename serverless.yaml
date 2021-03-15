@@ -1,0 +1,210 @@
+service:
+  name: changedvehicles-service
+
+plugins:
+  - serverless-dotenv-plugin
+  - serverless-python-requirements
+  - serverless-prune-plugin
+  - serverless-pseudo-parameters
+package:
+  exclude:
+    - ./**
+    - requirements.txt
+    - serverless.yml
+    - README.md
+    - node_modules/**
+    - scripts/**
+  include:
+    - artifacts/**
+
+provider:
+  name: aws
+  runtime: python3.6
+  memorySize: 3008
+  timeout: 60
+  logRetentionInDays: 14
+  deploymentBucket: cluno-data-tech-artifacts-eu-central-1-${self:provider.stage}
+  stage: ${opt:stage, self:custom.defaultStage}
+  region: ${opt:region, self:custom.defaultRegion}
+  usagePlan:
+    throttle:
+      burstLimit: 200
+      rateLimit: 100
+  environment:
+    STAGE: ${self:provider.stage}
+    REGION: ${self:provider.region}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - sqs:ReceiveMessage
+        - sqs:GetQueueAttributes
+        - sqs:ChangeMessageVisibility
+        - sqs:DeleteMessage
+        - sqs:DeleteMessageBatch
+      Resource:
+        - "arn:aws:sqs:*:*:*-TopicSubscriber-${opt:stage, self:custom.defaultStage}-${self:service.name}-Queue"
+    - Effect: Allow
+      Action:
+        - sns:Publish
+      Resource:
+        - Ref: 'ChangedVehiclesTopic'
+        - 'arn:aws:sns:eu-central-1:831745121203:balaji-test'
+    - Effect: Allow
+      Action:
+        - dynamodb:ListTables
+        - dynamodb:GetRecords
+        - dynamodb:Scan
+      Resource: arn:aws:dynamodb:eu-central-1:#{AWS::AccountId}:table/*-${opt:stage, self:custom.defaultStage}-EntityDB
+
+
+custom:
+  defaultStage: staging
+  defaultRegion: eu-central-1
+  pythonRequirements:
+    dockerizePip: non-linux
+    useDownloadCache: false
+    useStaticCache: false
+    slim: true
+    zip: true
+  profiles:
+    staging: staging
+    production: production
+  prune:
+    automatic: true
+    number: 1
+  ProductBackendAccounts:
+    develop:
+      AccountId: "785913317931"
+    staging:
+      AccountId: "843405587158"
+    production:
+      AccountId: "671207175309"
+  STAGE: ${opt:stage, self:custom.defaultStage}
+
+
+functions:
+  vehicleHandler:
+    handler: artifacts/lambda-handlers/vehicleHandler.handler
+    environment:
+      KEY_NAME: "Id"
+      TOPIC_ARN:
+        Ref: 'ChangedVehiclesTopic'
+#      SOURCESQSURL:
+#        Ref: "VehicleTopicSubscriberQueue"
+#    events:
+#      - sqs:
+#          arn: { Fn::GetAtt: ['VehicleTopicSubscriberQueue', 'Arn'] }
+#          batchSize: 10
+
+  bookingHandler:
+    handler: artifacts/lambda-handlers/bookingHandler.handler
+    environment:
+      KEY_NAME: "Vehicle__c"
+      TOPIC_ARN:
+        Ref: 'ChangedVehiclesTopic'
+#      SOURCESQSURL:
+#        Ref: "BookingTopicSubscriberQueue"
+#    events:
+#      - sqs:
+#          arn: { Fn::GetAtt: ['BookingTopicSubscriberQueue', 'Arn'] }
+#          batchSize: 10
+
+  accountHandler:
+    handler: artifacts/lambda-handlers/accountHandler.handler
+    environment:
+      KEY_NAME: "Account__c"
+      TOPIC_ARN:
+        Ref: 'ChangedVehiclesTopic'
+#      SOURCESQSURL:
+#        Ref: "AccountTopicSubscriberQueue"
+#    events:
+#      - sqs:
+#          arn: { Fn::GetAtt: ['AccountTopicSubscriberQueue', 'Arn'] }
+#          batchSize: 10
+
+  offerHandler:
+    handler: artifacts/lambda-handlers/offerHandler.handler
+    environment:
+      KEY_NAME: "Offer__c"
+      TOPIC_ARN:
+        Ref: 'ChangedVehiclesTopic'
+#      SOURCESQSURL:
+#        Ref: "OfferTopicSubscriberQueue"
+#    events:
+#      - sqs:
+#          arn: { Fn::GetAtt: ['OfferTopicSubscriberQueue', 'Arn'] }
+#          batchSize: 10
+
+  orderHandler:
+    handler: artifacts/lambda-handlers/orderHandler.handler
+    environment:
+      KEY_NAME: "Order__c"
+      TOPIC_ARN:
+        Ref: 'ChangedVehiclesTopic'
+#      SOURCESQSURL:
+#        Ref: "OrderTopicSubscriberQueue"
+#    events:
+#      - sqs:
+#          arn: { Fn::GetAtt: ['OrderTopicSubscriberQueue', 'Arn'] }
+#          batchSize: 10
+
+  refi2Handler:
+    handler: artifacts/lambda-handlers/refi2Handler.handler
+    environment:
+      KEY_NAME: "VH__c"
+      SOURCE_OBJECT: "Refi2"
+      TOPIC_ARN:
+        Ref: 'ChangedVehiclesTopic'
+#      SOURCESQSURL:
+#        Ref: "Refi2TopicSubscriberQueue"
+#    events:
+#      - sqs:
+#          arn: { Fn::GetAtt: ['Refi2TopicSubscriberQueue', 'Arn'] }
+#          batchSize: 10
+
+#  reficontractHandler:
+#    handler: artifacts/lambda-handlers/bookingHandler.handler
+#    environment:
+#      KEY_NAME: "KEY_NAME=RFC__c"
+#      SOURCE_OBJECT: "RefiContract"
+#      TOPIC_ARN:
+#        Ref: 'ChangedVehiclesTopic'
+#      SOURCESQSURL:
+#        Ref: "RefiContractTopicSubscriberQueue"
+#    events:
+#      - sqs:
+#          arn: { Fn::GetAtt: ['RefiContractTopicSubscriberQueue', 'Arn'] }
+#          batchSize: 10
+#
+#  refitrancheHandler:
+#    handler: artifacts/lambda-handlers/bookingHandler.handler
+#    environment:
+#      KEY_NAME: "Vehicle__c"
+#      SOURCE_OBJECT: "RefiTranche"
+#      TOPIC_ARN:
+#        Ref: 'ChangedVehiclesTopic'
+#      SOURCESQSURL:
+#        Ref: "RefiTrancheTopicSubscriberQueue"
+#    events:
+#      - sqs:
+#          arn: { Fn::GetAtt: ['RefiTrancheTopicSubscriberQueue', 'Arn'] }
+#          batchSize: 10
+
+
+#  bookingHandler:
+#    handler: src/lambda.handler
+#
+#  offerHandler:
+#    handler: src/lambda.handler
+
+
+resources:
+  - ${file(resources/sqs/Vehicle.yaml)}
+  - ${file(resources/sqs/Booking.yaml)}
+  - ${file(resources/sqs/Offer.yaml)}
+  - ${file(resources/sqs/Order.yaml)}
+  - ${file(resources/sqs/Account.yaml)}
+  - ${file(resources/sqs/Refi2.yaml)}
+  - ${file(resources/sqs/RefiTranche.yaml)}
+  - ${file(resources/sqs/RefiContract.yaml)}
+  - ${file(resources/sns/changedvehicles.yaml)}
